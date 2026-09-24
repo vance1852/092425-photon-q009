@@ -12,10 +12,10 @@ from datetime import datetime, timezone
 
 ROLES = {"operator", "engineer", "quality", "admin"}
 PERMISSIONS = {
-    "operator": {"read", "measure"},
-    "engineer": {"read", "measure", "analyze", "submit"},
-    "quality": {"read", "measure", "analyze", "approve", "release"},
-    "admin": {"read", "measure", "analyze", "submit", "approve", "release", "admin"},
+    "operator": {"read", "measure", "rework"},
+    "engineer": {"read", "measure", "analyze", "submit", "rework"},
+    "quality": {"read", "measure", "analyze", "approve", "release", "rework"},
+    "admin": {"read", "measure", "analyze", "submit", "approve", "release", "rework", "admin"},
 }
 
 

@@ -59,6 +59,15 @@ PYTHONPATH=src python3 -m plant_science.acceptance --workspace .
 
 `src/photon_fab/` 提供光电芯片批次、光谱测量、科学计算、质量审批和审计的离线后台。SQLite 保存完整批次生命周期，角色权限覆盖操作员、工程师、质量人员和管理员；峰值波长、噪声 RMS、响应度、置信区间及良率计算均为确定性本地算法。
 
+封装测试缺陷不再只写备注，而是结构化登记并全程追踪：
+
+- 缺陷登记包含类别（划痕、暗电流超限等）、严重度（`minor`/`major`/`critical`）、描述和责任人；
+- `major`/`critical` 缺陷登记后立即将批次置为 `hold`，未关闭前阻止 `release` 审批；
+- 返工任务记录指派人、完成者和完成说明，同一缺陷的全部返工任务完成后才允许复测；
+- 复测结果（可关联新测量记录）写回缺陷：通过则关闭，失败则缺陷重新打开并需再次返工；
+- 缺陷关闭且返工全部完成后，质量人员才能重新审批放行；`minor` 缺陷可由质量人员直接关闭；
+- 每次缺陷状态变化都在 `defect_events` 中记录操作者、原因和前后状态，批次级事件保留在审计日志中。
+
 ```bash
 PYTHONPATH=src python3 -m photon_fab.acceptance
 PYTHONPATH=src python3 -m photon_fab.api --database photon.sqlite3 --port 8080

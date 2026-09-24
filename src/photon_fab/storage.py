@@ -25,6 +25,24 @@ CREATE TABLE IF NOT EXISTS lot_events(
 CREATE TABLE IF NOT EXISTS approvals(
  lot_id TEXT NOT NULL, reviewer TEXT NOT NULL, decision TEXT NOT NULL,
  reason TEXT NOT NULL, created_at TEXT NOT NULL, PRIMARY KEY(lot_id,reviewer));
+CREATE TABLE IF NOT EXISTS defects(
+ defect_id TEXT PRIMARY KEY, lot_id TEXT NOT NULL REFERENCES chip_lots(lot_id),
+ category TEXT NOT NULL, title TEXT NOT NULL, severity TEXT NOT NULL,
+ description TEXT NOT NULL, owner TEXT NOT NULL, status TEXT NOT NULL,
+ created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS rework_tasks(
+ task_id TEXT PRIMARY KEY, defect_id TEXT NOT NULL REFERENCES defects(defect_id),
+ lot_id TEXT NOT NULL, instruction TEXT NOT NULL, assignee TEXT NOT NULL,
+ status TEXT NOT NULL, created_by TEXT NOT NULL, created_at TEXT NOT NULL,
+ completed_by TEXT, completed_at TEXT, completion_note TEXT);
+CREATE TABLE IF NOT EXISTS retests(
+ retest_id TEXT PRIMARY KEY, defect_id TEXT NOT NULL REFERENCES defects(defect_id),
+ lot_id TEXT NOT NULL, result TEXT NOT NULL, reason TEXT NOT NULL,
+ measurement_id TEXT, tested_by TEXT NOT NULL, tested_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS defect_events(
+ event_id INTEGER PRIMARY KEY AUTOINCREMENT, defect_id TEXT NOT NULL, lot_id TEXT NOT NULL,
+ action TEXT NOT NULL, from_status TEXT, to_status TEXT NOT NULL,
+ actor TEXT NOT NULL, reason TEXT NOT NULL, created_at TEXT NOT NULL);
 """
 
 
@@ -33,7 +51,7 @@ def utcnow() -> str:
 
 
 def connect(path: str = ":memory:") -> sqlite3.Connection:
-    db = sqlite3.connect(path)
+    db = sqlite3.connect(path, check_same_thread=False)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys=ON")
     db.executescript(SCHEMA)
