@@ -59,6 +59,29 @@ PYTHONPATH=src python3 -m plant_science.acceptance --workspace .
 
 `src/photon_fab/` 提供光电芯片批次、光谱测量、科学计算、质量审批和审计的离线后台。SQLite 保存完整批次生命周期，角色权限覆盖操作员、工程师、质量人员和管理员；峰值波长、噪声 RMS、响应度、置信区间及良率计算均为确定性本地算法。
 
+封装测试缺陷（划痕、暗电流超限等）通过缺陷登记闭环跟踪：
+
+- 登记缺陷时记录缺陷代码、标题、严重度（`minor`/`major`/`critical`）、来源、责任人和发现原因；
+- `major`/`critical` 为严重缺陷，登记后批次立即置为 `hold`（已放行批次被召回 hold），返工完成、复测通过、质量人员关闭缺陷前，放行审批一律被门禁拒绝（HTTP 409）；
+- 返工任务按缺陷派工（责任人、工艺说明），完工后登记复测结果并与返工任务关联；复测失败任务退回重开，必须重新派工；批次在返工完成前持续保持 hold；
+- `minor` 缺陷不阻塞放行，但同样要求质量人员闭环或由质量作废；
+- 缺陷的每次状态变化（登记、派工、完工、复测通过/失败、关闭、作废）都在 `defect_events` 中记录操作者、原因和前后状态，批次事件流同步留痕。
+
+缺陷相关 HTTP 接口（除登录外均需 `Authorization: Bearer <token>`）：
+
+| 方法与路径 | 说明 |
+| --- | --- |
+| `POST /lots/{id}/defects` | 登记缺陷（operator/engineer/quality） |
+| `GET  /lots/{id}/defects` | 列出批次缺陷 |
+| `GET  /defects/{id}` | 缺陷详情（含返工任务与复测记录） |
+| `GET  /defects/{id}/history` | 缺陷状态履历（操作者与原因） |
+| `POST /defects/{id}/rework` | 派返工任务（engineer/admin） |
+| `POST /rework/{task_id}/complete` | 返工完工（operator） |
+| `POST /defects/{id}/retests` | 登记复测结果（operator，关联返工任务） |
+| `POST /defects/{id}/close` | 质量关闭缺陷（quality；严重缺陷须复测通过） |
+| `POST /defects/{id}/void` | 质量作废误报缺陷（quality） |
+| `POST /lots/{id}/approvals` | 质量审批（release/hold/reject；门禁返回 409） |
+
 ```bash
 PYTHONPATH=src python3 -m photon_fab.acceptance
 PYTHONPATH=src python3 -m photon_fab.api --database photon.sqlite3 --port 8080

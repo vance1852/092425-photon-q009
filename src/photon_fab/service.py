@@ -7,6 +7,7 @@ from typing import Sequence
 
 from .analytics import confidence_interval, summarize_spectrum, yield_rate
 from .auth import Auth
+from .defects import DefectTracker, QualityGateError
 from .storage import connect, event, transaction, utcnow
 
 
@@ -14,6 +15,7 @@ class PhotonService:
     def __init__(self, database: str = ":memory:"):
         self.db = connect(database)
         self.auth = Auth(self.db)
+        self.defects = DefectTracker(self.db, self.auth)
 
     def bootstrap_admin(self, user_id: str = "admin", password: str = "photon-admin") -> None:
         try:
@@ -63,6 +65,12 @@ class PhotonService:
         if decision not in {"release", "hold", "reject"} or not reason.strip():
             raise ValueError("decision and reason are required")
         with transaction(self.db):
+            if not self.db.execute("SELECT 1 FROM chip_lots WHERE lot_id=?", (lot_id,)).fetchone():
+                raise KeyError(lot_id)
+            # 严重缺陷未闭环（含返工未完成、复测未通过）时禁止放行；
+            # 批次须由质量人员在缺陷关闭后重新审批。
+            if decision == "release":
+                self.defects.assert_release_allowed(lot_id)
             self.db.execute("INSERT OR REPLACE INTO approvals VALUES(?,?,?,?,?)", (lot_id, actor.user_id, decision, reason, utcnow()))
             status = {"release": "released", "hold": "hold", "reject": "rejected"}[decision]
             self.db.execute("UPDATE chip_lots SET status=?,updated_at=? WHERE lot_id=?", (status, utcnow(), lot_id))
